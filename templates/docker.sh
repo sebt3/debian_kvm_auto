@@ -35,7 +35,7 @@ docker.install() {
 	echo "deb https://download.docker.com/linux/debian buster stable" >"$MP/etc/apt/sources.list.d/docker.list"
 	curl -s https://download.docker.com/linux/ubuntu/gpg | LANG=C chroot "$MP" apt-key add -
 	LANG=C chroot "$MP" apt-get update
-	LANG=C chroot "$MP" apt-get install -y docker-ce
+	LANG=C chroot "$MP" apt-get install -y docker-ce docker-compose
 	LANG=C chroot "$MP" systemctl enable docker
 }
 docker.base.verify() { task.verify.permissive; }
