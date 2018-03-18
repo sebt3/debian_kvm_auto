@@ -61,22 +61,53 @@ task.add() {
 task.handleOut() {
 	gawk -vD=$1 'BEGIN{E="ERROR";W="WARNING"}{print;L=D}'"$TASK_awkFilter"'{print L" "$0 >"/dev/fd/6";fflush("/dev/fd/6") }'
 }
-task.verify() {
-	local r=0 L
+
+task.verify.rc() {
+	if ! [ $TASK_ret -eq ${1:-0} ];then
+		out.notice "${TASK_name[$TASK_current]} returned $TASK_ret"
+		return 1
+	fi
+	return 0
+}
+task.verify.stdout() {
+	local L
 	for L in $(gawk -vD=STDOUT 'BEGIN{E="ERROR";W="WARNING"}{L=D}'"$TASK_awkFilter"'{print L}' <<<"$TASK_out"|sort -u);do
 		if [[ $L == "ERROR" ]];then
 			out.notice "${TASK_name[$TASK_current]} have generated errors on stdout"
-			r=3
+			return 1
 		fi
 	done 
+	return 0
+}
+task.verify.stderr() {
+	local L
+	for L in $(gawk -vD=STDERR 'BEGIN{E="ERROR";W="WARNING"}{L=D}'"$TASK_awkFilter"'{print L}' <<<"$TASK_err"|sort -u);do
+		if [[ $L == "ERROR" ]];then
+			out.notice "${TASK_name[$TASK_current]} have generated errors on stderr"
+			return 1
+		fi
+	done
+	return 0
+}
+task.verify.stderr.empty() {
 	if ! [ -z "$TASK_err" ];then
 		out.notice "${TASK_name[$TASK_current]} have generated errors on stderr"
-		r=2
+		return 1
 	fi
-	if ! [ $TASK_ret -eq 0 ];then
-		out.notice "${TASK_name[$TASK_current]} returned $TASK_ret"
-		r=1
-	fi
+	return 0
+}
+task.verify() {
+	local r=0
+	task.verify.stdout || r=3
+	task.verify.stderr.empty || r=2
+	task.verify.rc || r=1
+	return $r
+}
+task.verify.permissive() {
+	local r=0
+	task.verify.stdout || r=3
+	task.verify.stderr || r=2
+	task.verify.rc || r=1
 	return $r
 }
 task.list() {

@@ -32,27 +32,31 @@
 
 . "${TEMPLATE_DIR}/kubenode.sh"
 
+kbm.enable.verify() { task.verify.permissive; }
 kbm.enable() {
-	LANG=C chroot "$MP" systemctl enable etcd 2>&1
-	LANG=C chroot "$MP" systemctl enable flannel 2>&1
-	LANG=C chroot "$MP" systemctl enable docker 2>&1
-	LANG=C chroot "$MP" systemctl enable kube-apiserver 2>&1
-	LANG=C chroot "$MP" systemctl enable kube-controller-manager 2>&1
-	LANG=C chroot "$MP" systemctl enable kubelet 2>&1
-	LANG=C chroot "$MP" systemctl enable kube-proxy 2>&1
-	LANG=C chroot "$MP" systemctl enable kube-scheduler 2>&1
+	LANG=C chroot "$MP" systemctl enable etcd
+	LANG=C chroot "$MP" systemctl enable flannel
+	LANG=C chroot "$MP" systemctl enable docker
+	LANG=C chroot "$MP" systemctl enable kube-apiserver
+	LANG=C chroot "$MP" systemctl enable kube-controller-manager
+	LANG=C chroot "$MP" systemctl enable kubelet
+	LANG=C chroot "$MP" systemctl enable kube-proxy
+	LANG=C chroot "$MP" systemctl enable kube-scheduler
 }
 
+kbm.etcd.verify() { task.verify.permissive; }
 kbm.etcd() {
 	cat >"$MP/etc/default/etcd" <<ENDCFG
 DAEMON_ARGS=--advertise-client-urls http://${VLAN}.$LIP:4001 --listen-client-urls http://${VLAN}.$LIP:4001,http://127.0.0.1:4001
 ENDCFG
-	LANG=C chroot "$MP" systemctl enable etcd 2>&1
+	LANG=C chroot "$MP" systemctl enable etcd
 }
+kbm.kubelet.verify() { task.verify.permissive; }
 kbm.kubelet() {
 	kbn.kubelet "--register-schedulable=false"
 	sed -i 's/^After.*service/After=docker.service flannel.service kube-apiserver.service/' "$MP/lib/systemd/system/kubelet.service"
 }
+kbm.apiserver.verify() { task.verify.permissive; }
 kbm.apiserver() {
 	mkdir -p "$MP/var/lib/kubernetes/crt"
 	chroot "$MP" chown kube:kube /var/lib/kubernetes/crt /var/lib/kubernetes
@@ -68,30 +72,33 @@ KUBE_ADMISSION_CONTROL="--admission-control=NamespaceLifecycle,LimitRanger,Servi
 KUBE_SERVICE_ADDRESSES="--service-cluster-ip-range=192.168.0.0/16"
 DAEMON_ARGS="--cert-dir=/var/lib/kubernetes/crt --service-account-key-file=/var/lib/kubernetes/kube-serviceaccount.key --service-account-lookup=false"
 ENDCFG
-	LANG=C chroot "$MP" systemctl enable kube-apiserver 2>&1
+	LANG=C chroot "$MP" systemctl enable kube-apiserver
 }
+kbm.control.verify() { task.verify.permissive; }
 kbm.control() {
 	sed -i 's/^After.*/After=network.target kube-apiserver.service/' "$MP/lib/systemd/system/kube-controller-manager.service"
 	cat >"$MP/etc/default/kube-controller-manager" <<ENDCFG
 DAEMON_ARGS="--service-account-private-key-file=/var/lib/kubernetes/kube-serviceaccount.key --root-ca-file=/var/lib/kubernetes/crt/apiserver.crt --enable-hostpath-provisioner=false --pvclaimbinder-sync-period=15s --master=${VLAN}.$MIP:8080"
 ENDCFG
-	LANG=C chroot "$MP" systemctl enable kube-controller-manager 2>&1
+	LANG=C chroot "$MP" systemctl enable kube-controller-manager
 }
+kbm.proxy.verify() { task.verify.permissive; }
 kbm.proxy() {
 	kbn.proxy
 	sed -i 's/^After.*/After=network.target kube-apiserver.service/' "$MP/lib/systemd/system/kube-proxy.service"
 }
 
+kbm.scheduler.verify() { task.verify.permissive; }
 kbm.scheduler() {
 	cat >"$MP/etc/default/kube-scheduler" <<ENDCFG
 KUBE_MASTER=--master=http://${VLAN}.$MIP:8080
 DAEMON_ARGS=""
 ENDCFG
 	sed -i 's/^After.*/After=network.target kube-apiserver.service/' "$MP/lib/systemd/system/kube-scheduler.service"
-	LANG=C chroot "$MP" systemctl enable kube-scheduler 2>&1
+	LANG=C chroot "$MP" systemctl enable kube-scheduler
 }
 
-
+kbm.install.verify() { task.verify.permissive; }
 kbm.install() {
 	kbn.install kubernetes-master etcd-server
 }

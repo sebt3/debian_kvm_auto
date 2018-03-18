@@ -30,19 +30,20 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+jk.install.verify() { task.verify.permissive; }
 jk.install() {
 	echo "deb https://pkg.jenkins.io/debian binary/" >"$MP/etc/apt/sources.list.d/jenkins.list"
-	curl -s https://pkg.jenkins.io/debian/jenkins.io.key | LANG=C chroot "$MP" apt-key add - 2>&1
-	LANG=C chroot "$MP" apt-get update 2>&1
-	LANG=C chroot "$MP" apt-get install -y jenkins 2>&1
-	LANG=C chroot "$MP" systemctl enable jenkins 2>&1
+	curl -s https://pkg.jenkins.io/debian/jenkins.io.key | LANG=C chroot "$MP" apt-key add -
+	LANG=C chroot "$MP" apt-get update
+	LANG=C chroot "$MP" apt-get install -y jenkins
+	LANG=C chroot "$MP" systemctl enable jenkins
 }
-
+jk.base.verify() { task.verify.permissive; }
 jk.base() {
-	LANG=C chroot "$MP" apt-get install -y ca-certificates openjdk-8-jre-headless gnupg2 2>&1
+	LANG=C chroot "$MP" apt-get install -y ca-certificates openjdk-8-jre-headless gnupg2 gawk git bc
 }
 template.bootstrap() {
-	create.bootstrap ",ca-certificates,openjdk-8-jre-headless,gnupg2"
+	create.bootstrap ",ca-certificates,openjdk-8-jre-headless,gnupg2,gawk,git,bc"
 }
 template.config() {
 	[[ "$1" == "config" ]] && task.add jk.base "Download base packages for jenkins"

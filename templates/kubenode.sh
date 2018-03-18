@@ -34,6 +34,7 @@
 kbn.getcri() {
 	curl -q https://storage.googleapis.com/cri-containerd-release/cri-containerd-${CRIVERS}.linux-amd64.tar.gz 2>/dev/null |tar xzf - -C "$MP"
 }
+kbn.flannel.verify() { task.verify.permissive; }
 kbn.flannel() {
 	mkdir -p "$MP/var/lib/flannel"
 	cat >"$MP/lib/systemd/system/flannel.service" <<ENDCFG
@@ -51,9 +52,10 @@ ExecStart=/usr/bin/flannel -etcd-endpoints=http://${VLAN}.$MIP:4001 -subnet-file
 [Install]
 WantedBy=multi-user.target
 ENDCFG
-	LANG=C chroot "$MP" systemctl enable flannel 2>&1
+	LANG=C chroot "$MP" systemctl enable flannel
 }
 
+kbn.docker.verify() { task.verify.permissive; }
 kbn.docker() {
 	cat >"$MP/lib/systemd/system/docker.service" <<ENDCFG
 [Unit]
@@ -87,8 +89,9 @@ KillMode=process
 [Install]
 WantedBy=multi-user.target
 ENDCFG
-	LANG=C chroot "$MP" systemctl enable docker 2>&1
+	LANG=C chroot "$MP" systemctl enable docker
 }
+kbn.kubelet.verify() { task.verify.permissive; }
 kbn.kubelet() {
 	mkdir -p "$MP/var/lib/kubernetes"
 	sed -i 's/^After.*service/After=docker.service flannel.service/' "$MP/lib/systemd/system/kubelet.service"
@@ -99,17 +102,19 @@ kbn.kubelet() {
 KUBELET_API_SERVER="--api-servers=${VLAN}.$MIP:8080"
 DAEMON_ARGS="--cert-dir=/var/lib/kubernetes/ --chaos-chance=0.0 --container-runtime=docker $1 --address=0.0.0.0 --cpu-cfs-quota=false  --cluster-dns=8.8.8.8"
 ENDCFG
-	LANG=C chroot "$MP" systemctl enable kubelet 2>&1
+	LANG=C chroot "$MP" systemctl enable kubelet
 }
+kbn.proxy.verify() { task.verify.permissive; }
 kbn.proxy() {
 	cat >"$MP/etc/default/kube-proxy" <<ENDCFG
 KUBE_MASTER=--master=http://${VLAN}.$MIP:8080
 DAEMON_ARGS=""
 ENDCFG
 	sed -i 's/^After.*/After=network.target flannel.service/' "$MP/lib/systemd/system/kube-proxy.service"
-	LANG=C chroot "$MP" systemctl enable kube-proxy 2>&1
+	LANG=C chroot "$MP" systemctl enable kube-proxy
 }
 
+kbn.install.verify() { task.verify.permissive; }
 kbn.install() {
 	#containerd libseccomp2 libapparmor1
 	LANG=C chroot "$MP" apt-get install -y ca-certificates etcd-client flannel kubernetes-node kubernetes-client "$@"
@@ -117,7 +122,6 @@ kbn.install() {
 kbn.bootstrap() {
 	create.bootstrap ",ca-certificates,kubernetes-client,kubernetes-node,etcd-client,flannel$1"
 }
-
 
 template.bootstrap() {
 	kbn.bootstrap

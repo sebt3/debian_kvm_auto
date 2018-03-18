@@ -40,13 +40,14 @@ sele.download() {
 	mkdir -p "$MP/opt/selenium"
 	curl -s -o "$MP/opt/selenium/selenium.jar" http://selenium-release.storage.googleapis.com/${s}/selenium-server-standalone-${V}.jar
 }
-
+sele.firefox.verify() { task.verify.permissive; }
 sele.firefox() {
-	LANG=C chroot "$MP" apt-get install -y firefox 2>&1
+	LANG=C chroot "$MP" apt-get install -y firefox
 }
 
+sele.base.verify() { task.verify.permissive; }
 sele.base() {
-	LANG=C chroot "$MP" apt-get install -y ca-certificates openjdk-8-jre-headless xvfb unzip libxi6 libgconf-2-4 2>&1
+	LANG=C chroot "$MP" apt-get install -y ca-certificates openjdk-8-jre-headless xvfb unzip libxi6 libgconf-2-4
 }
 
 template.bootstrap() {
