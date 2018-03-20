@@ -30,6 +30,10 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+MASTER=${MASTER:-"dockermaster"}
+args.declare MASTER   -A --master  Vals NoOption NotMandatory "Master hostname		(DEFAULT: $MASTER)"
+
+
 docker.install.verify() { task.verify.permissive; }
 docker.install() {
 	echo "deb https://download.docker.com/linux/debian buster stable" >"$MP/etc/apt/sources.list.d/docker.list"
@@ -49,3 +53,30 @@ template.config() {
 	[[ "$1" == "config" ]] && task.add docker.base "Download base packages for docker"
 	task.add docker.install		"install docker"
 }
+############################
+####
+##  Custom activities
+#
+setupm.init() {
+	ssh -q -o PasswordAuthentication=no "$HNAME" docker swarm init
+}
+setupmaster() {
+	task.add setupm.init		"Initialize the swarm"
+}
+act.add.post setupmaster "Configure a running VM for swarm master usage"
+
+setupb.init() {
+	ssh -q -o PasswordAuthentication=no "$HNAME" $(ssh -q -o PasswordAuthentication=no $MASTER docker swarm join-token master|grep join)
+}
+setupbackup() {
+	task.add setupb.init		"Initialize the swarm master backup node"
+}
+act.add.post setupbackup "Configure a running VM for secondary swarm master"
+setupn.init() {
+	ssh -q -o PasswordAuthentication=no "$HNAME" $(ssh -q -o PasswordAuthentication=no $MASTER docker swarm join-token worker|grep join)
+}
+setupnode() {
+	task.add setupn.init		"Initialize the swarm node"
+}
+act.add.post setupnode "Configure a running VM for swarm node usage"
+

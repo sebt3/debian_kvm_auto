@@ -30,7 +30,9 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-
+MIP=${MIP:-"10"}
+args.declare MIP   -I --master-last-ip  Vals NoOption NotMandatory "master node last ip	(DEFAULT: $MIP)"
+CRIVERS="1.0.0-beta.1"
 kbn.getcri() {
 	curl -q https://storage.googleapis.com/cri-containerd-release/cri-containerd-${CRIVERS}.linux-amd64.tar.gz 2>/dev/null |tar xzf - -C "$MP"
 }

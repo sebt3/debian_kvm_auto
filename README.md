@@ -50,7 +50,7 @@ And then configure your nodes :
     virsh start kubemaster
     ssh kubemaster
     # logout, that was just to accept the host key
-    $dka -a setupmaster -H kubemaster
+    $dka -t kubemaster -a setupmaster -H kubemaster
     virsh destroy kubemaster
     virsh start kubemaster
     virsh start kube01

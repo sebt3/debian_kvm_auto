@@ -47,10 +47,8 @@ MIRROR=${MIRROR:-"http://ftp.fr.debian.org/debian"}
 HNAME=${HNAME:-"defaulthost"}
 VLAN=${VLAN:-"10.0.0"}
 LIP=${LIP:-"10"}
-MIP=${MIP:-"10"}
 MEM=${MEM:-"524288"}
 PASS=${PASS:-"root"}
-CRIVERS="1.0.0-beta.1"
 args.declare FILE    -f --file      Vals NoOption NotMandatory "The image file		(DEFAULT: $FILE)"
 args.declare DISK    -d --disk      Vals NoOption NotMandatory "The nbd device to use	(DEFAULT: $DISK)"
 args.declare MP      -m --montpoint Vals NoOption NotMandatory "Mount the image to		(DEFAULT: $MP)"
