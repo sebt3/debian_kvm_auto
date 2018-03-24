@@ -35,9 +35,11 @@ LOG_level=NONE
 SHLIBDIR=${SHLIBDIR:-"${BASE_dir}/bashlibs"}
 . $SHLIBDIR/core.lib.bash
 . $SHLIBDIR/task.lib.bash
+OUT_color[$(out.levelID STDERR)]=""
 
 TEMPLATE_DIR=${TEMPLATE_DIR:-"${BASE_dir}/templates"}
 
+export APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=yes #disable the "Warning: apt-key output should not be parsed (stdout is not a terminal)" message
 ARGS_info="kvm_auto: Create debian VMs on a debian host with libvirt/KVM"
 MP=${MP:-"/tmp/images/default"}
 DISK=${DISK:-"/dev/nbd0"}

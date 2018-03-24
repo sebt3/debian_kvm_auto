@@ -88,9 +88,9 @@ setupmaster() {
 act.add.post setupmaster "Configure a running VM for kubernetes master usage"
 
 setupn.init() {
-	# TODO: find a way to get theses keys from the master
-	#ssh -q -o PasswordAuthentication=no "$HNAME" kubeadm join --token 6cabd8.2b97af7e9335116f 10.0.0.10:6443 --discovery-token-ca-cert-hash sha256:28a04bebf81bd0e711ec167411c20a29f3bbd8ef7cebc8385f9c9e3e108b5599 --ignore-preflight-errors=all
-	:
+	local TOKEN=$(ssh -q -o PasswordAuthentication=no "$MASTER" kubeadm token list|awk '/kubeadm/&&/default-node-token/{print $1}')
+	local SHA=$(ssh -q -o PasswordAuthentication=no "$MASTER" "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex" | sed 's/^.* //') 
+	ssh -q -o PasswordAuthentication=no "$HNAME" kubeadm join --token "$TOKEN" "$MASTER:6443" --discovery-token-ca-cert-hash "sha256:$SHA" --ignore-preflight-errors=all
 }
 setupnode() {
 	task.add setupn.init		"Initialize the kube infrastructure"
