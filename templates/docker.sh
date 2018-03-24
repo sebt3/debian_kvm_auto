@@ -58,22 +58,22 @@ template.config() {
 ##  Custom activities
 #
 setupm.init() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" docker swarm init
+	docker swarm init
 }
 setupmaster() {
-	task.add setupm.init		"Initialize the swarm"
+	task.add "$HNAME" setupm.init		"Initialize the swarm"
 }
 act.add.post setupmaster "Configure a running VM for swarm master usage"
 
 setupb.init() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" $(ssh -q -o PasswordAuthentication=no $MASTER docker swarm join-token master|grep join)
+	net.run "$HNAME" $(net.run $MASTER docker swarm join-token master|grep join)
 }
 setupbackup() {
 	task.add setupb.init		"Initialize the swarm master backup node"
 }
 act.add.post setupbackup "Configure a running VM for secondary swarm master"
 setupn.init() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" $(ssh -q -o PasswordAuthentication=no $MASTER docker swarm join-token worker|grep join)
+	net.run "$HNAME" $(net.run $MASTER docker swarm join-token worker|grep join)
 }
 setupnode() {
 	task.add setupn.init		"Initialize the swarm node"

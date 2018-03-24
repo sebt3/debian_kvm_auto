@@ -68,29 +68,29 @@ template.config() {
 ####
 ##  Custom activities
 #
+setupm.init.verify() { task.verify.permissive; }
 setupm.init() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" kubeadm init "--apiserver-advertise-address=${VIP}.$LIP" "--pod-network-cidr=10.244.0.0/16" --ignore-preflight-errors=all
+	net.run "$HNAME" kubeadm init "--apiserver-advertise-address=${VIP}.$LIP" "--pod-network-cidr=10.244.0.0/16" --ignore-preflight-errors=all
 }
 
 setupm.enable.verify() { task.verify.permissive; }
 setupm.enable() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" systemctl enable kubelet
-	ssh -q -o PasswordAuthentication=no "$HNAME" systemctl start kubelet
+	systemctl enable kubelet && systemctl start kubelet
 }
 setupm.flannel() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
+	kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.9.1/Documentation/kube-flannel.yml
 }
 setupmaster() {
-	task.add setupm.init		"Initialize the kube infrastructure"
-	task.add setupm.enable		"Start the kubelet"
-	task.add setupm.flannel		"Start the flannel"
+	task.add	  setupm.init		"Initialize the kube infrastructure"
+	task.add "$HNAME" setupm.enable		"Start the kubelet"
+	task.add "$HNAME" setupm.flannel	"Start the flannel"
 }
 act.add.post setupmaster "Configure a running VM for kubernetes master usage"
 
 setupn.init() {
-	local TOKEN=$(ssh -q -o PasswordAuthentication=no "$MASTER" kubeadm token list|awk '/kubeadm/&&/default-node-token/{print $1}')
-	local SHA=$(ssh -q -o PasswordAuthentication=no "$MASTER" "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex" | sed 's/^.* //') 
-	ssh -q -o PasswordAuthentication=no "$HNAME" kubeadm join --token "$TOKEN" "$MASTER:6443" --discovery-token-ca-cert-hash "sha256:$SHA" --ignore-preflight-errors=all
+	local TOKEN=$(net.run "$MASTER" kubeadm token list|awk '/kubeadm/&&/default-node-token/{print $1}')
+	local SHA=$(net.run "$MASTER" "openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex" | sed 's/^.* //') 
+	net.run "$HNAME" kubeadm join --token "$TOKEN" "$MASTER:6443" --discovery-token-ca-cert-hash "sha256:$SHA" --ignore-preflight-errors=all
 }
 setupnode() {
 	task.add setupn.init		"Initialize the kube infrastructure"

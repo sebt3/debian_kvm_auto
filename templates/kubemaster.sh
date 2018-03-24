@@ -121,7 +121,7 @@ template.config() {
 
 
 setupm.confnet() {
-	ssh -q -o PasswordAuthentication=no "$HNAME" "etcdctl set /coreos.com/network/config '{ \"Network\": \"${VLAN}.0/16\" }'"
+	net.run "$HNAME" "etcdctl set /coreos.com/network/config '{ \"Network\": \"${VLAN}.0/16\" }'"
 }
 setupmaster() {
 	task.add setupm.confnet		"Configure etcd"

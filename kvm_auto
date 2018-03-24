@@ -31,7 +31,7 @@
 
 OUT_level=${OUT_level:-NOTICE}
 BASE_dir=${BASE_dir:-"$(cd "$(dirname $0)";pwd)"}
-LOG_level=NONE
+LOG_level=${LOG_level:-NONE}
 SHLIBDIR=${SHLIBDIR:-"${BASE_dir}/bashlibs"}
 . $SHLIBDIR/core.lib.bash
 . $SHLIBDIR/task.lib.bash

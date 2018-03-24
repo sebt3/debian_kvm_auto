@@ -29,9 +29,19 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
+net.resolve() {
+	if is.function net.resolver;then
+		net.resolver "$@"
+		return $?
+	fi
+	echo "$@"
+}
+net.run() { ssh -q -o PasswordAuthentication=no "$@"; }
+net.runFunction() { net.run "$1" "$(typeset -f $2|awk 'NR>3 {print last} {last=$0}')"; }
+
 TASK_target=()
 TASK_name=()
-#TASK_preCheck=()
 TASK_verify=()
 TASK_desc=()
 TASK_defaultVerify=${TASK_defaultValidate:-"task.verify"}
@@ -51,7 +61,6 @@ task.add() {
 	shift
 	TASK_desc[$i]="$*"
 	TASK_target[$i]="$target"
-	#TODO support precheck
 	if is.function ${TASK_name[$i]}.verify;then
 		TASK_verify[$i]="${TASK_name[$i]}.verify"
 	else
@@ -61,9 +70,12 @@ task.add() {
 task.handleOut() {
 	gawk -vD=$1 'BEGIN{E="ERROR";W="WARNING"}{print;L=D}'"$TASK_awkFilter"'{print L" "$0 >"/dev/fd/6";fflush("/dev/fd/6") }'
 }
+task.handleOutRem() {
+	gawk -vD=$1 -vR=$2 'BEGIN{E="ERROR";W="WARNING"}{print;L=D}'"$TASK_awkFilter"'{print L" "R": "$0 >"/dev/fd/6";fflush("/dev/fd/6") }'
+}
 
 task.verify.rc() {
-	if ! [ $TASK_ret -eq ${1:-0} ];then
+	if ! [ ${TASK_ret:-0} -eq ${1:-0} ];then
 		out.notice "${TASK_name[$TASK_current]} returned $TASK_ret"
 		return 1
 	fi
@@ -71,7 +83,7 @@ task.verify.rc() {
 }
 task.verify.stdout() {
 	local L
-	for L in $(gawk -vD=STDOUT 'BEGIN{E="ERROR";W="WARNING"}{L=D}'"$TASK_awkFilter"'{print L}' <<<"$TASK_out"|sort -u);do
+	for L in $(gawk -vD=STDOUT 'BEGIN{E="ERROR";W="WARNING"}{L=D}'"$TASK_awkFilter"'{print L}' <<<"${TASK_out:-""}"|sort -u);do
 		if [[ $L == "ERROR" ]];then
 			out.notice "${TASK_name[$TASK_current]} have generated errors on stdout"
 			return 1
@@ -81,7 +93,7 @@ task.verify.stdout() {
 }
 task.verify.stderr() {
 	local L
-	for L in $(gawk -vD=STDERR 'BEGIN{E="ERROR";W="WARNING"}{L=D}'"$TASK_awkFilter"'{print L}' <<<"$TASK_err"|sort -u);do
+	for L in $(gawk -vD=STDERR 'BEGIN{E="ERROR";W="WARNING"}{L=D}'"$TASK_awkFilter"'{print L}' <<<"${TASK_err:-""}"|sort -u);do
 		if [[ $L == "ERROR" ]];then
 			out.notice "${TASK_name[$TASK_current]} have generated errors on stderr"
 			return 1
@@ -117,41 +129,86 @@ task.list() {
 		printf "[%2d] %-21s %s\n" "$i" "${TASK_name[$i]}" "${TASK_desc[$i]}"
 	done
 }
+task.runUnit() {
+	local id=$1;shift
+	local name=$1;shift
+	local desc="$@"
+	out.task "[$id] ${desc}"
+	if is.function "${name}.precheck";then
+		eval "${name}.precheck";ret=$?;
+		if [ $ret -ne 0 ];then
+			out.error "precheck for \"${desc}\" have failed"
+			out.lvl FAIL "[$id] ${desc}"
+			return $ret
+		fi
+	fi
+	oldfd=${OUT_fd:-1};
+	if [ $oldfd -eq 1 ];then
+		exec 4>&1;OUT_fd=4
+	elif [ $oldfd -eq 4 ];then
+		exec 5>&1;LOG_fd=5
+	fi
+	eval "$( $name  2> >(err=$(task.handleOut STDERR); typeset -p err) > >(out=$(task.handleOut STDOUT); typeset -p out); ret=$?; typeset -p ret )"
+	if [ $oldfd -eq 1 ];then
+		exec >&- >&4;OUT_fd=${oldfd}
+	elif [ $oldfd -eq 4 ];then
+		exec >&- >&5;LOG_fd=1
+	fi
+	TASK_out=$out TASK_err=$err TASK_ret=$ret ${TASK_verify[$i]};ret=$?
+	if [ $ret -ne 0 ];then
+		out.lvl FAIL "[$id] ${desc}"
+		return $ret
+	else
+		out.ok "[$id] ${desc}"
+	fi
+}
+task.runTarget() {
+	local id=$1;shift
+	local target=$1;shift
+	local name=$1;shift
+	local desc="$@"
+	out.task "[$id][$target] ${desc}"
+	if is.function "${name}.precheck";then
+		net.runFunction "$target" "${name}.precheck";ret=$?;
+		if [ $ret -ne 0 ];then
+			out.error "precheck for \"${desc}\" have failed"
+			out.lvl FAIL "[$id][$target] ${desc}"
+			return $ret
+		fi
+	fi
+	oldfd=${OUT_fd:-1};
+	if [ $oldfd -eq 1 ];then
+		exec 4>&1;OUT_fd=4
+	elif [ $oldfd -eq 4 ];then
+		exec 5>&1;LOG_fd=5
+	fi
+	eval "$( net.runFunction "$target" "$name"  2> >(err=$(task.handleOutRem STDERR $target); typeset -p err) > >(out=$(task.handleOutRem STDOUT $target); typeset -p out); ret=$?; typeset -p ret )"
+	if [ $oldfd -eq 1 ];then
+		exec >&- >&4;OUT_fd=${oldfd}
+	elif [ $oldfd -eq 4 ];then
+		exec >&- >&5;LOG_fd=1
+	fi
+	TASK_out=$out TASK_err=$err TASK_ret=$ret ${TASK_verify[$i]};ret=$?
+	if [ $ret -ne 0 ];then
+		out.lvl FAIL "[$id][$target] ${desc}"
+		return $ret
+	else
+		out.ok "[$id][$target] ${desc}"
+	fi
+}
 task.run() {
 	local min=${1:-0}
 	local max=${2:-$(( ${#TASK_name[@]} - 1 ))}
-	local i out err ret oldfd logdf lvl line
+	local i out err ret oldfd logdf lvl line h
 	exec 6> >(while read lvl line;do out.lvl $lvl "$line";done)
 	for ((i=$min;i<=$max;i++));do
 		TASK_current=$i
-		out.task "[$i] ${TASK_desc[$i]}"
-		if is.function "${TASK_name[$i]}.precheck";then
-			eval "${TASK_name[$i]}.precheck";ret=$?;
-			if [ $ret -ne 0 ];then
-				out.error "precheck for \"${TASK_desc[$i]}\" have failed"
-				out.lvl FAIL "[$i] ${TASK_desc[$i]}"
-				return $ret
-			fi
-		fi
-		oldfd=${OUT_fd:-1};
-		if [ $oldfd -eq 1 ];then
-			exec 4>&1;OUT_fd=4
-		elif [ $oldfd -eq 4 ];then
-			exec 5>&1;LOG_fd=5
-		fi
-		#TODO add support for TARGET
-		eval "$( ${TASK_name[$i]}  2> >(err=$(task.handleOut STDERR); typeset -p err) > >(out=$(task.handleOut STDOUT); typeset -p out); ret=$?; typeset -p ret )"
-		if [ $oldfd -eq 1 ];then
-			exec >&- >&4;OUT_fd=${oldfd}
-		elif [ $oldfd -eq 4 ];then
-			exec >&- >&5;LOG_fd=1
-		fi
-		TASK_out=$out TASK_err=$err TASK_ret=$ret ${TASK_verify[$i]};ret=$?
-		if [ $ret -ne 0 ];then
-			out.lvl FAIL "[$i] ${TASK_desc[$i]}"
-			return $ret
+		if [[ "${TASK_target[$i]}" == "" ]];then
+			task.runUnit "$i" "${TASK_name[$i]}" "${TASK_desc[$i]}" || return $?
 		else
-			out.ok "[$i] ${TASK_desc[$i]}"
+			for h in $(net.resolve "${TASK_target[$i]}");do
+				task.runTarget  "$i" "$h" "${TASK_name[$i]}" "${TASK_desc[$i]}"  || return $?
+			done
 		fi
 	done
 	exec 6>&-
@@ -235,10 +292,8 @@ act.set() {
 		out.error "Cannot set \"$1\" activity"
 		return 1
 	fi
-	
 }
 act.script() {
-	local i
 	local i
 	MIN=0
 	#MAX=
@@ -254,6 +309,10 @@ act.script() {
 	args.use.help
 	args.parse "$@"
 	act.set $ACT
+	if [ ${#TASK_name[@]} -eq 0 ];then
+		out.error "No task to run"
+		return 1
+	fi
 	if ! is.set MAX;then
 		MAX=$(( ${#TASK_name[@]} - 1 ))
 	fi
@@ -300,8 +359,8 @@ act.script() {
 		echo
 	else
 		mkdir -p $LOG_dir
-		[ $(out.levelID $LOG_level) -eq 0 ] && log.start
+		[ $(out.levelID $LOG_level) -ne 0 ] && log.start
 		task.run "$MIN" "$MAX"
-		log.end
+		[ $(out.levelID $LOG_level) -ne 0 ] && log.end
 	fi
 }
