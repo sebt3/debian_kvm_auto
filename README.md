@@ -4,6 +4,43 @@ This script automate the installation of kvm and libvirt on debian and the setup
 It was meant to be able to play with kubernetes, so it have some feature around this.
 There's no real magic in here as we're using the debian packages and debbootstrap, it's just nice to have it automated.
 
+```
+kvm_auto: Create debian VMs on a debian host with libvirt/KVM
+./kvm_auto [-f|--file FILE] [-d|--disk DISK] [-m|--montpoint MP] [-r|--release RELEASE] [-M|--mirror MIRROR] [-E|--mem MEM] [-H|--hostname HNAME] [-p|--password PASS] [-v|--vlan VLAN] [-i|--last-ip LIP] [-t|--template TMPLT] [-a|--activity ACT] [-l|--list] [-b|--begin MIN] [-e|--end MAX] [-o|--only ONLY] [-h|--help]
+./kvm_auto [ACT]
+-f|--file FILE           : The image file               (DEFAULT: /root/default.qcow)
+-d|--disk DISK           : The nbd device to use        (DEFAULT: /dev/nbd0)
+-m|--montpoint MP        : Mount the image to           (DEFAULT: /tmp/images/default)
+-r|--release RELEASE     : Debian release to use        (DEFAULT: sid)
+-M|--mirror MIRROR       : Debian mirror                (DEFAULT: http://10.0.0.1:3142/debian)
+-E|--mem MEM             : VM memory                    (DEFAULT: 524288)
+-H|--hostname HNAME      : Hostname                     (DEFAULT: defaulthost)
+-p|--password PASS       : root password                (DEFAULT: root)
+-v|--vlan VLAN           : 3 first numbers of the vlan network            (DEFAULT: 10.0.0)
+-i|--last-ip LIP         : last ip number for that vm in the vlan private (DEFAULT: 10)
+-t|--template TMPLT      : Template to use for the initial configuration of the host
+-a|--activity ACT        : Select the activity to run
+-l|--list                : List all available tasks
+-b|--begin MIN           : Begin at that task
+-e|--end MAX             : End at that task
+-o|--only ONLY           : Only run this step
+-h|--help                : Show this help text
+
+Available values for TMPLT (Template to use for the initial configuration of the host):
+docker                   : A docker VM using the docker official repo
+jenkins                  : A Jenkins server
+kubemaster               : A kubernetes master
+kubenode                 : A kubernetes node
+kubeorig                 : A kubernetes node unconfigured using officials repos
+selenium                 : A selenium instance
+
+Available values for ACT (Select the activity to run):
+uninstall                : Cleanup the configuration
+setup                    : Setup the host system
+create                   : Create a debian image
+config                   : Configure an image
+```
+
 ## Running instruction
 For lisibility i'm using these 2 variables bellow :
 ```
