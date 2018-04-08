@@ -47,11 +47,13 @@ TASK_desc=()
 TASK_defaultVerify=${TASK_defaultValidate:-"task.verify"}
 TASK_translateTarget=${TASK_translateTarget:-"echo"}
 TASK_awkFilter=${TASK_awkFilter:-'/No such file or directory/{L=E}'}
+TASK_useHost=0
 task.add() {
 	local target=""
 	local i=${#TASK_name[@]}
 	if ! is.function $1;then
 		target=$1;shift
+		TASK_useHost=1
 	fi
 	if ! is.function $1;then
 		out.error "${BASH_SOURCE[1]##*/}:${BASH_LINENO[0]}: $1 is not a function cannot add that task to the list"
@@ -124,10 +126,17 @@ task.verify.permissive() {
 }
 task.list() {
 	local i
-	printf "[##]_Task__________________Description____________________________________\n"
-	for ((i=0;i<${#TASK_name[@]};i++));do
-		printf "[%2d] %-21s %s\n" "$i" "${TASK_name[$i]}" "${TASK_desc[$i]}"
-	done
+	if [ $TASK_useHost -eq 0 ];then
+		printf "[##]_Task__________________Description____________________________________\n"
+		for ((i=0;i<${#TASK_name[@]};i++));do
+			printf "[%2d] %-21s %s\n" "$i" "${TASK_name[$i]}" "${TASK_desc[$i]}"
+		done
+	else
+		printf "[##]_Host__________________Task__________________Description____________________________________\n"
+		for ((i=0;i<${#TASK_name[@]};i++));do
+			printf "[%2d] %-21s %-21s %s\n" "$i" "${TASK_target[$i]}" "${TASK_name[$i]}" "${TASK_desc[$i]}"
+		done
+	fi
 }
 task.runUnit() {
 	local id=$1;shift
