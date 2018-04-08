@@ -77,6 +77,7 @@ for tmp in $(templates.list);do
 	args.option TMPLT "$tmp" "$(awk '/#@DESC@/{gsub("#@DESC@","");print}' <$TEMPLATE_DIR/${tmp}.sh)"
 done
 args.callback TMPLT templates.load
+[ ! -z $TMPLT ] && [ -f "${TEMPLATE_DIR}/${TMPLT}.sh" ] && templates.load $TMPLT
 
 is.root() {
 	[ $(id -u) -eq 0 ]
