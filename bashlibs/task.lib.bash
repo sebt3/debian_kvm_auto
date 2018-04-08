@@ -138,6 +138,16 @@ task.list() {
 		done
 	fi
 }
+task.ctrl() {
+	# close all non-usefull filedescriptor
+	(
+		local n
+		for n in $(find /proc/$BASHPID/fd -type l -printf '%f\n');do
+			((n > 4)) && eval "exec $n>&-"
+		done
+		eval "$@"
+	)
+}
 task.runUnit() {
 	local id=$1;shift
 	local name=$1;shift
@@ -157,7 +167,7 @@ task.runUnit() {
 	elif [ $oldfd -eq 4 ];then
 		exec 5>&1;LOG_fd=5
 	fi
-	eval "$( $name  2> >(err=$(task.handleOut STDERR); typeset -p err) > >(out=$(task.handleOut STDOUT); typeset -p out); ret=$?; typeset -p ret )"
+	eval "$( task.ctrl $name  2> >(err=$(task.handleOut STDERR); typeset -p err) > >(out=$(task.handleOut STDOUT); typeset -p out); ret=$?; typeset -p ret )"
 	if [ $oldfd -eq 1 ];then
 		exec >&- >&4;OUT_fd=${oldfd}
 	elif [ $oldfd -eq 4 ];then
