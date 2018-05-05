@@ -226,6 +226,7 @@ create.bootstrap() {
 }
 create.config() {
 	echo "$HNAME">"$MP/etc/hostname"
+	echo "LANG=\"C\"">"$MP/etc/default/locale"
 	echo "/dev/vda1 / ext4 errors=remount-ro 0 1">"$MP/etc/fstab"
 	local B=$(backup /etc/hosts)
 	sed "/$HNAME/d" <$B >/etc/hosts
